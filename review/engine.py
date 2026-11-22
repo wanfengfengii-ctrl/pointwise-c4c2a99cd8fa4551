@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+import json
 
 from issue.manifest import PacketManifest
 from receive.decode import decode_packet
@@ -20,6 +21,9 @@ class ReviewResult:
 def validate_review_input(store: ReceiveStore, request: ReviewRequest):
     validate_review_request(request)
     acceptance = get_accepted_packet(store, request.acceptance_id)
+    envelope = json.loads(acceptance.payload.decode('utf-8'))
+    if isinstance(envelope, dict) and envelope.get('version') == 2:
+        raise ValueError('sign_review only accepts V1 packets')
     packet = decode_packet(acceptance.payload, acceptance.digest, acceptance.outbound_id)
     manifest = packet.manifest
     if manifest.revision_id != acceptance.revision_id:

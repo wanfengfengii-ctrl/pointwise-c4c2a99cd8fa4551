@@ -27,6 +27,8 @@ python3 -B demo.py
 | 夜班实收 | `receive_packet(inventory, payload, digest, expected_outbound_id)` 返回实收记录，其 `acceptance_id` 用于核账。编号和摘要来自交付单。同件重复点收分配不同实收号 |
 | 签报 | `sign_review(inventory, reports, acceptance_id, initial_references, threshold)` 返回 `SignedReport`，含报告字典和成功回执。相同收件及请求复用原签报 |
 | 领取 | `read_report(reports, report_id)` 返回原报告及原成功回执；`read_receipt(reports, report_id)` 返回对应回执 |
+| 回绕发行（V2） | `issue_unwrap(source, registry, revision_id, channel, modulus, bounds, max_step, positions)` 返回与 `issue_packet` 同形的 `FixedPacket`；按冻结卷指定通道的整轨核定，无合法整轨拒发 |
+| 标定签报（V2） | `sign_unwrap(inventory, reports, acceptance_id, anchors)` 对 V2 实收支应用整张标定单，返回 `SignedReport`；`anchors` 为所选原位到量程内整数实值的映射，可为空 |
 
 存储类型为 `RecordStore`、`IssueRegistry`、`ReceiveStore` 和 `ReportStore`。首次打开创建缺失表和索引，重复打开保留数据。接纳、冻结、勘误、发行、实收及签报各有自己的持久化边界。
 
@@ -41,3 +43,13 @@ python3 -B demo.py
 V1 包外层含版本、出站号、清单及清单摘要。传递校验使用完整包字节的 SHA-256 摘要。实收核对预期身份、两层内容关系、规范编码和测次结构后才登记。摘要用于完整性校验，交付单提供正确的身份和摘要。报告及成功回执同事务落库，回执绑定报告、实收号及请求摘要。重新打开、改变工艺单或另行勘误后，旧报告和首执仍原样领取。
 
 非法录制及复核参数抛出 `ValueError`，错件抛出带 `code` 的 `PacketRejected`，未知编号抛出 `KeyError`。白班和点收的数据库写入错误沿用 `sqlite3.Error`，签报的数据库错误以 `ReportCommitError` 返回。失败的持久操作无新记录。待核属于可签存的业务结果。
+
+## 回绕标定交班（V2）
+
+`issue_unwrap` 把指定通道从头至尾的原读当作模数 `modulus` 下的余数，仅接受分母为 1 且落在 `[0, modulus)` 的整数原读；补读不参与核定。候选实值是闭量程 `[lo, hi]` 内与该拍余数同余的整数，同道相邻两拍实值差绝对值至多为 `max_step`（夹有别通道行时仍按同道相邻处理）。整条通道均须参与，任一无解即拒发。整数参数一律拒绝布尔值。
+
+V2 外层仍为规范 JSON，含 `version=2`、`outbound_id`、`content_digest` 和 `manifest`，出站号与两层摘要规则与 V1 相同。清单字段为 `kind`（固定 `unwrap`）、`recording_id`、`revision_id`、`channel`、`modulus`、`bounds`、`max_step`、`selected` 和 `evidence`。`selected` 按原位升序，每项含 `position`、整数 `residue` 与原读半开出处 `source`；未选测次的逐拍余数、身份和出处不进包，留站保存。
+
+`evidence` 是精确联合可行证据：一个按字典序排序、去重的整数数组数组，每个内层数组与 `selected` 等长，第 `i` 个值是第 `i` 个选中位在某条合法整轨上的实值；整体恰好覆盖全部且仅有能延伸为合法整轨的选中位实值组合。收件端不访问白班、也不重建未选原据，只核对该结构与选中行的一致性后实收。
+
+`sign_unwrap` 只用 V2 实收件，`sign_review` 拒用 V2。位外或量程外标定是非法参数（`ValueError`）；量程内标定与余数或共同轨迹矛盾时签存 `outcome="conflict"` 且 `rows` 为空。相容时 `rows` 按 `selected` 原序，每行保留 `position`、`residue`、`source`，另有 `status`（`unique`/`ambiguous`）和 `value`（多解为 `null`）。同一实收号与等价标定复领原签报；报告与首执同事务落库，重开报告库即可原样领取。只把 V1 外层版本改成 2 的件按版本类错件拒收，错摘要或错出站号不登记实收。

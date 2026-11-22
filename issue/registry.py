@@ -1,5 +1,6 @@
-from issue.encode import FixedPacket, compute_packet_digest, encode_packet
+from issue.encode import FixedPacket, compute_packet_digest, encode_packet, encode_unwrap_packet
 from issue.manifest import PacketManifest
+from issue.unwrap_manifest import UnwrapManifest
 from labdb import SQLiteStore
 
 
@@ -15,18 +16,25 @@ class IssueRegistry(SQLiteStore):
         )''')
         self.connection.execute('CREATE INDEX IF NOT EXISTS reissues_outbound ON reissues(outbound_id)')
 
-    def register_packet(self, manifest: PacketManifest):
-        packet = encode_packet(manifest)
+    def _register(self, packet, recording_id, revision_id):
         with self.write() as connection:
             existing = self.find_packet(packet.outbound_id)
             if existing is None:
                 connection.execute('INSERT INTO outbound_packets VALUES (?, ?, ?, ?, ?)', (
-                    packet.outbound_id, manifest.recording.recording_id, manifest.revision_id,
+                    packet.outbound_id, recording_id, revision_id,
                     packet.digest, packet.payload,
                 ))
             elif existing != packet:
                 raise ValueError('outbound identity is already bound to other bytes')
         return packet
+
+    def register_packet(self, manifest: PacketManifest):
+        packet = encode_packet(manifest)
+        return self._register(packet, manifest.recording.recording_id, manifest.revision_id)
+
+    def register_unwrap_packet(self, manifest: UnwrapManifest):
+        packet = encode_unwrap_packet(manifest)
+        return self._register(packet, manifest.recording_id, manifest.revision_id)
 
     def find_packet(self, outbound_id):
         row = self.connection.execute('''SELECT digest, payload FROM outbound_packets

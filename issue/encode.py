@@ -4,6 +4,7 @@ import json
 
 from issue.evidence import attach_occurrence_provenance, validate_evidence_completeness
 from issue.manifest import PacketManifest, manifest_schema_version
+from issue.unwrap_manifest import UnwrapManifest, unwrap_manifest_data, unwrap_schema_version
 
 
 @dataclass(frozen=True)
@@ -46,6 +47,19 @@ def encode_packet(manifest: PacketManifest):
     outbound_id = outbound_id_for(content_digest)
     payload = canonical_packet_bytes({
         'version': manifest_schema_version,
+        'outbound_id': outbound_id,
+        'content_digest': content_digest,
+        'manifest': body,
+    })
+    return FixedPacket(outbound_id, compute_packet_digest(payload), payload)
+
+
+def encode_unwrap_packet(manifest: UnwrapManifest):
+    body = unwrap_manifest_data(manifest)
+    content_digest = compute_packet_digest(canonical_packet_bytes(body))
+    outbound_id = outbound_id_for(content_digest)
+    payload = canonical_packet_bytes({
+        'version': unwrap_schema_version,
         'outbound_id': outbound_id,
         'content_digest': content_digest,
         'manifest': body,
