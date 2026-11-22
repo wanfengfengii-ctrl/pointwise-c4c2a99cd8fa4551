@@ -1,0 +1,27 @@
+{
+  "recording_id": "shift-17",
+  "work_order": "compression-241",
+  "batch_id": "steel-K4",
+  "instrument_id": "bridge-6",
+  "revision_id": "shift-17-r1",
+  "sequence": {
+    "channels": ["A"],
+    "occurrences": [
+      {
+        "occurrence_id": "m1", "position": 0, "channel_id": "A", "template_id": "bridge",
+        "original": {"value": "7", "source": {"artifact": "run-17.raw", "start": 0, "end": 2}},
+        "supplement": null
+      },
+      {
+        "occurrence_id": "m2", "position": 1, "channel_id": "A", "template_id": "bridge",
+        "original": {"value": "11", "source": {"artifact": "run-17.raw", "start": 2, "end": 5}},
+        "supplement": {"value": "12", "source": {"artifact": "run-17.range", "start": 0, "end": 3}}
+      },
+      {
+        "occurrence_id": "m3", "position": 2, "channel_id": "A", "template_id": "bridge",
+        "original": {"value": "16", "source": {"artifact": "run-17.raw", "start": 5, "end": 8}},
+        "supplement": {"value": "30", "source": {"artifact": "run-17.range", "start": 3, "end": 6}}
+      }
+    ]
+  }
+}
